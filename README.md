@@ -13,7 +13,7 @@ to run the script run thew following bash:
 
 ```bash
 python -m venv venv-npNN
-source venv_npNN/bin/activate
+source venv-npNN/bin/activate
 pip3 install -r freeze.txt
 cd src
 python3 deepNN.py
