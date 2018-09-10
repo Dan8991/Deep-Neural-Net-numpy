@@ -1,5 +1,6 @@
 import numpy as np
 from keras.datasets import mnist
+import matplotlib.pyplot as plt
 
 def init_params(layers_shape):
     W = []
@@ -100,10 +101,11 @@ m, h ,w = x_train.shape
 m_test = x_test.shape[0]
 
 #hyperparameters
-epochs = 100
+epochs = 20
 batch_size = 32
-alpha = 0.003
-decay_rate = 1
+alpha_zero = 0.003
+# 0 = no decay
+decay_rate = 0
 
 #inputs preprocessing
 x_train = normalize_inputs(np.reshape(x_train, [m, h*w]).T)
@@ -112,8 +114,17 @@ x_test = normalize_inputs(np.reshape(x_test, [m_test, h*w]).T)
 y_test = one_hot(np.reshape(y_test,[1,m_test]))
 
 params = init_params([h*w, 128, 128, 10])
+loss_train = []
+ep = []
+
+plt.plot([],[],[],[])
+plt.ylabel('loss')
+plt.xlabel('epochs')
+plt.ion()
+plt.show()
 
 for i in range(epochs):
+    alpha = alpha_zero/(1+decay_rate*i)
     randomize = np.arange(m)
     np.random.shuffle(randomize)
     X = x_train[:, randomize]
@@ -123,12 +134,19 @@ for i in range(epochs):
         Y_batch = Y[:, batch_size * j:batch_size * (j + 1)]
         y_pred, cache = forward_prop(X_batch, params)
         params = back_propagate(X_batch, Y_batch, cache, params, learning_rate=alpha)
-        alpha *= decay_rate 
     y_pred, _ = forward_prop(x_train, params)
+    y_test_pred, _ = forward_prop(x_test, params)
     l = loss(y_pred, y_train)
     acc = accuracy(y_pred, y_train)
-    print("epoch: "+str(i)+" loss:"+str(l)+" accuracy:"+str(acc))
+    print("epoch: " + str(i) + " loss:" + str(l) + " accuracy:" + str(acc) + " learning_rate:" + str(alpha))
+    loss_train.append(l)
+    ep.append(i)
+    plt.plot(ep, loss_train)
+    plt.draw()
+    plt.pause(0.001)
     
+plt.savefig("train.png")
+plt.close()
 y_pred, _ = forward_prop(x_test, params)
 acc = accuracy(y_pred, y_test)
 print("accuracy on test set:", acc)
