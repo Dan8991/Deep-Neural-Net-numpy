@@ -31,12 +31,13 @@ def one_hot(y):
     return res
 
 
-def calculate_gradients(X, Y, params, cache):
+def calculate_gradients(X, Y, params, cache, mom_grads, beta=0.9):
     Z1, Z2, Z3 = cache["Z"]
     A1, A2, A3 = cache["A"]
     _, W2, W3 = params["W"]
     m = Y.shape[1]
-
+    VdW1, VdW2, VdW3 = mom_grads["dW"]
+    Vdb1, Vdb2, Vdb3 = mom_grads["db"]
     dZ3 = A3 - Y
     dW3 = 1/m*np.dot(dZ3, A2.T)
     db3 = 1/m*np.sum(dZ3, axis=1, keepdims=True)
@@ -46,9 +47,14 @@ def calculate_gradients(X, Y, params, cache):
     dZ1 = np.dot(W2.T, dZ2)*(A1 > 0)
     dW1 = 1/m*np.dot(dZ1, X.T)
     db1 = 1/m*np.sum(dZ1, axis=1, keepdims=True)
-
-    dW = [dW1, dW2, dW3]
-    db = [db1, db2, db3]
+    VdW1 = beta*VdW1 + (1 - beta)*dW1
+    VdW2 = beta*VdW2 + (1 - beta)*dW2
+    VdW3 = beta*VdW3 + (1 - beta)*dW3
+    Vdb1 = beta*Vdb1 + (1 - beta)*db1
+    Vdb2 = beta*Vdb2 + (1 - beta)*db2
+    Vdb3 = beta*Vdb3 + (1 - beta)*db3
+    dW = [VdW1, VdW2, VdW3]
+    db = [Vdb1, Vdb2, Vdb3]
     grads = {"dW": dW, "db": db}
 
     return grads
@@ -77,8 +83,8 @@ def loss(y_pred, y):
     return -1/m*np.sum(np.sum(y*np.log(y_pred), axis=1), axis=0)
 
 
-def back_propagate(X, Y, cache, params, learning_rate=0.01):
-    grads = calculate_gradients(X, Y, params, cache)
+def back_propagate(X, Y, cache, params, mom_grads, learning_rate=0.01, beta=0.9):
+    grads = calculate_gradients(X, Y, params, cache, mom_grads)
     W1, W2, W3 = params["W"]
     b1, b2, b3 = params["b"]
     dW1, dW2, dW3 = grads["dW"]
@@ -115,6 +121,7 @@ m_test = x_test.shape[0]
 epochs = 20
 batch_size = 32
 alpha_zero = 0.003
+beta = 0.9
 # 0 = no decay
 decay_rate = 0
 
@@ -123,7 +130,7 @@ x_train = normalize_inputs(np.reshape(x_train, [m, h*w]).T)
 y_train = one_hot(np.reshape(y_train, [1, m]))
 x_test = normalize_inputs(np.reshape(x_test, [m_test, h*w]).T)
 y_test = one_hot(np.reshape(y_test, [1, m_test]))
-grads = {"dW" = [0, 0, 0], "db" = [0, 0, 0]}
+mom_grads = {"dW": [0, 0, 0], "db": [0, 0, 0]}
 
 params = init_params([h*w, 128, 128, 10])
 loss_train = []
@@ -145,12 +152,12 @@ for i in range(epochs):
         X_batch = X[:, batch_size * j:batch_size * (j + 1)]
         Y_batch = Y[:, batch_size * j:batch_size * (j + 1)]
         y_pred, cache = forward_prop(X_batch, params)
-        params, grads = back_propagate(X_batch, Y_batch, cache, params, learning_rate=alpha)
+        params, mom_grads = back_propagate(X_batch, Y_batch, cache, params, mom_grads, learning_rate=alpha, beta=beta)
     y_pred, _ = forward_prop(x_train, params)
     y_test_pred, _ = forward_prop(x_test, params)
     l = loss(y_pred, y_train)
     acc = accuracy(y_pred, y_train)
-    print("epoch: " + str(i) + " loss:" + str(l) + " accuracy:" + str(acc) + " learning_rate:" + str(alpha))
+    print("epoch: " + str(i) + " loss:" + str(l) + " accuracy:" + str(acc))
     loss_train.append(l)
     ep.append(i)
     plt.plot(ep, loss_train)
