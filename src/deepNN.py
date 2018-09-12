@@ -151,9 +151,9 @@ iteration = 0
 # hyperparameters
 epochs = 30
 batch_size = 32
-alpha_zero = 0.01
+alpha_zero = 0.0001
 beta1 = 0.9
-epsilon = 0.001
+epsilon = 0.0000001
 beta2 = 0.9
 # 0 = no decay
 decay_rate = 0
@@ -173,6 +173,10 @@ ep = []
 plt.plot([], [], [], [])
 plt.ylabel('loss')
 plt.xlabel('epochs')
+y_pred, _ = forward_prop(x_train, params)
+l = loss(y_pred, y_train)
+ep.append(0)
+loss_train.append(l)
 plt.ion()
 plt.show()
 
