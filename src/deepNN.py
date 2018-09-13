@@ -19,23 +19,27 @@ def relu(x):
 def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
-
+#normalizing the inputs to be in range -0.5,0.5
 def normalize_inputs(x):
     return x/256-0.5
 
-
+#returns onehot representation of a number
 def one_hot(y):
     res = np.zeros([10, y.shape[1]])
     for i in range(y.shape[1]):
         res[y[0, i], i] = 1
     return res
 
-
+#calculating sgd gradients
 def calculate_gradients(X, Y, params, cache):
+
+    #extracting parameters
     Z1, Z2, Z3 = cache["Z"]
     A1, A2, A3 = cache["A"]
     _, W2, W3 = params["W"]
     m = Y.shape[1]
+
+    #calculating gradients
     dZ3 = A3 - Y
     dW3 = 1/m*np.dot(dZ3, A2.T)
     db3 = 1/m*np.sum(dZ3, axis=1, keepdims=True)
@@ -52,42 +56,56 @@ def calculate_gradients(X, Y, params, cache):
 
     return grads
 
-
+#method used to calculate momentum
 def calculate_momentum(grads, mom_grads, iterations, beta1=0.9):
+
+    #extracting parameters
     VdW1, VdW2, VdW3 = mom_grads["VdW"]
     Vdb1, Vdb2, Vdb3 = mom_grads["Vdb"]
     dW1, dW2, dW3 = grads["dW"]
     db1, db2, db3 = grads["db"]
+
+    #calculating momentum
     VdW1 = beta1*VdW1 + (1 - beta1)*dW1
     VdW2 = beta1*VdW2 + (1 - beta1)*dW2
     VdW3 = beta1*VdW3 + (1 - beta1)*dW3
     Vdb1 = beta1*Vdb1 + (1 - beta1)*db1
     Vdb2 = beta1*Vdb2 + (1 - beta1)*db2
     Vdb3 = beta1*Vdb3 + (1 - beta1)*db3
+
     VdW = [VdW1, VdW2, VdW3]
     Vdb = [Vdb1, Vdb2, Vdb3]
     return {"VdW": VdW, "Vdb": Vdb}
 
+#method used to calculate values used for rmsprop
 def calculate_rms(grads, rms_grads, iterations, beta2=0.9, epsilon=0.00000001):
+    
+    #retrieving parameters
     SdW1, SdW2, SdW3 = rms_grads["SdW"]
     Sdb1, Sdb2, Sdb3 = rms_grads["Sdb"]
     dW1, dW2, dW3 = grads["dW"]
     db1, db2, db3 = grads["db"]
+
+    #calculating rms
     SdW1 = beta2*SdW1 + (1 - beta2)*np.square(dW1)
     SdW2 = beta2*SdW2 + (1 - beta2)*np.square(dW2)
     SdW3 = beta2*SdW3 + (1 - beta2)*np.square(dW3)
     Sdb1 = beta2*Sdb1 + (1 - beta2)*np.square(db1)
     Sdb2 = beta2*Sdb2 + (1 - beta2)*np.square(db2)
     Sdb3 = beta2*Sdb3 + (1 - beta2)*np.square(db3)
+
     SdW = [SdW1, SdW2, SdW3]
     Sdb = [Sdb1, Sdb2, Sdb3]
     return {"SdW": SdW, "Sdb": Sdb}
 
-
+#forward propagation method
 def forward_prop(inputs, parameters):
+
+    #retrieving parameters
     W1, W2, W3 = parameters["W"]
     b1, b2, b3 = parameters["b"]
 
+    #performing forward prop
     Z1 = np.dot(W1, inputs) + b1
     A1 = relu(Z1)
     Z2 = np.dot(W2, A1) + b2
@@ -101,24 +119,43 @@ def forward_prop(inputs, parameters):
     cache = {"Z": Z, "A": A}
     return A3, cache
 
-
+#crossentropy loss
 def loss(y_pred, y):
     m = y.shape[1]
     return -1/m*np.sum(np.sum(y*np.log(y_pred), axis=1), axis=0)
 
+'''
+backpropagation with sgd or rms-prop or momentum or adam
+sgd is obtained with rms_prop=False and beta1=0
+momentum is obtained with rms_prop=False and beta1!=0
+rms_prop is obained with beta1=0 and rms_prop=True
+adam is obtained with rms_prop=True and beta1!=0
+'''
+def back_propagate(X, Y, cache, params, mom_grads, rms_grads, iteration, rms_prop=False, learning_rate=0.01, beta1=0.9, beta2=0.9, epsilon=0.00000001):
 
-def back_propagate(X, Y, cache, params, mom_grads, rms_grads, iteration, learning_rate=0.01, beta1=0.9, beta2=0.9, epsilon=0.00000001):
-    grads = calculate_gradients(X, Y, params, cache)
-    mom_grads = calculate_momentum(grads, mom_grads, iteration, beta1=beta1)
-    rms_grads = calculate_rms(grads, rms_grads, iteration, beta2=beta2, epsilon=epsilon)
-
+    #getting params
     W1, W2, W3 = params["W"]
     b1, b2, b3 = params["b"]
+
+    #sgd gradients
+    grads = calculate_gradients(X, Y, params, cache)
+
+    #momentum
+    mom_grads = calculate_momentum(grads, mom_grads, iteration, beta1=beta1)
     VdW1, VdW2, VdW3 = mom_grads["VdW"]
     Vdb1, Vdb2, Vdb3 = mom_grads["Vdb"]
-    SdW1, SdW2, SdW3 = rms_grads["SdW"]
-    Sdb1, Sdb2, Sdb3 = rms_grads["Sdb"]
+    
+    #rms_prop
+    if rms_prop:
+        rms_grads = calculate_rms(
+            grads, rms_grads, iteration, beta2=beta2, epsilon=epsilon)
+        SdW1, SdW2, SdW3 = rms_grads["SdW"]
+        Sdb1, Sdb2, Sdb3 = rms_grads["Sdb"]
+    else:
+        SdW1, SdW2, SdW3 = [1, 1, 1]
+        Sdb1, Sdb2, Sdb3 = [1, 1, 1]
 
+    #updating parameters
     W1 -= learning_rate*VdW1/(np.sqrt(SdW1)+epsilon)
     W2 -= learning_rate*VdW2/(np.sqrt(SdW2)+epsilon)
     W3 -= learning_rate*VdW3/(np.sqrt(SdW3)+epsilon)
@@ -128,9 +165,10 @@ def back_propagate(X, Y, cache, params, mom_grads, rms_grads, iteration, learnin
 
     W = [W1, W2, W3]
     b = [b1, b2, b3]
+
     return {"W": W, "b": b}, mom_grads, rms_grads
 
-
+#calculates accuracy as guesses/size of the set
 def accuracy(y_pred, y):
     m = y.shape[1]
     count = 0
@@ -152,10 +190,12 @@ iteration = 0
 epochs = 30
 batch_size = 32
 alpha_zero = 0.0001
+# beta1 = 0 => no momentum
 beta1 = 0.9
+#not really necessary to tune epsilon it is used to be sure that we don't divide by 0
 epsilon = 0.0000001
 beta2 = 0.9
-# 0 = no decay
+# decay_rate = 0 => no decay
 decay_rate = 0
 
 # inputs preprocessing
@@ -167,9 +207,10 @@ mom_grads = {"VdW": [0, 0, 0], "Vdb": [0, 0, 0]}
 rms_grads = {"SdW": [0, 0, 0], "Sdb": [0, 0, 0]}
 
 params = init_params([h*w, 128, 128, 10])
+
+# initializing graph
 loss_train = []
 ep = []
-
 plt.plot([], [], [], [])
 plt.ylabel('loss')
 plt.xlabel('epochs')
@@ -180,19 +221,28 @@ loss_train.append(l)
 plt.ion()
 plt.show()
 
+# start training
 for i in range(epochs):
+
+    # learning rate decay
     alpha = alpha_zero/(1+decay_rate*i)
+
+    # shuffling the dataset
     randomize = np.arange(m)
     np.random.shuffle(randomize)
     X = x_train[:, randomize]
     Y = y_train[:, randomize]
+
+    # mini-batch training
     for j in range(m//batch_size):
         iteration += 1
         X_batch = X[:, batch_size * j:batch_size * (j + 1)]
         Y_batch = Y[:, batch_size * j:batch_size * (j + 1)]
         y_pred, cache = forward_prop(X_batch, params)
         params, mom_grads, rms_grads = back_propagate(
-            X_batch, Y_batch, cache, params, mom_grads, rms_grads, iteration, learning_rate=alpha, beta1=beta1, beta2=beta2, epsilon=epsilon)
+            X_batch, Y_batch, cache, params, mom_grads, rms_grads, iteration, rms_prop=True, learning_rate=alpha, beta1=beta1, beta2=beta2, epsilon=epsilon)
+
+    #computing debugging data like loss accuracy and loss graph
     y_pred, _ = forward_prop(x_train, params)
     l = loss(y_pred, y_train)
     acc = accuracy(y_pred, y_train)
@@ -205,6 +255,8 @@ for i in range(epochs):
 
 plt.savefig("train.png")
 plt.close()
+
+#benchmarking model on test set
 y_pred, _ = forward_prop(x_test, params)
 acc = accuracy(y_pred, y_test)
 print("accuracy on test set:", acc)
